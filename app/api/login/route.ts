@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import bcrypt from "bcrypt";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from("customers")
-    .select("id, email, full_name")
+    .select("id, email, full_name, password_hash")
     .eq("email", email)
     .single();
 
@@ -55,9 +56,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No such account" }, { status: 401 });
   }
 
-  if (password !== "shopflow") {
+  const passwordMatches = data.password_hash && (await bcrypt.compare(password, data.password_hash));
+  if (!passwordMatches) {
     return NextResponse.json({ error: "Wrong password" }, { status: 401 });
   }
 
-  return NextResponse.json({ user: data });
+  const { password_hash, ...user } = data;
+  return NextResponse.json({ user });
 }
